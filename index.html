@@ -750,8 +750,8 @@ DO NOT alter identity, change arrangement, add/remove objects, or apply cartoon 
       payload.generationConfig.imageConfig = { aspectRatio: state.aspectRatio };
     }
 
-    // Use the image generation model
-    const genModel = 'gemini-2.0-flash-exp-image-generation';
+    // Use the strongest image generation model for best quality
+    const genModel = 'gemini-3-pro-image-preview';
     const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${genModel}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
