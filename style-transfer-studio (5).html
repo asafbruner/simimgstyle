@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Style Transfer Studio — Nano Banana</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #08080c;
+    --surface: rgba(255,255,255,0.03);
+    --surface-hover: rgba(255,255,255,0.06);
+    --border: rgba(255,255,255,0.07);
+    --border-active: #7c3aed;
+    --text: #e2e2e8;
+    --text-dim: rgba(255,255,255,0.45);
+    --text-dimmer: rgba(255,255,255,0.25);
+    --accent: #7c3aed;
+    --accent-glow: rgba(124,58,237,0.15);
+    --pink: #ec4899;
+    --error: #ef4444;
+    --error-bg: rgba(239,68,68,0.08);
+    --warn: #f59e0b;
+    --radius: 14px;
+    --radius-sm: 10px;
+  }
+
+  body {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Header */
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255,255,255,0.015);
+    backdrop-filter: blur(20px);
+    position: sticky; top: 0; z-index: 50;
+  }
+  .header-logo {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: linear-gradient(135deg, var(--accent), var(--pink));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; flex-shrink: 0;
+  }
+  .header-title { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; }
+  .header-sub {
+    font-size: 10px; color: var(--text-dimmer); letter-spacing: 1.6px;
+    text-transform: uppercase; margin-top: 1px;
+  }
+
+  /* Layout */
+  .layout {
+    max-width: 1240px; margin: 0 auto; padding: 24px 28px 60px;
+    display: grid; grid-template-columns: 300px 1fr; gap: 24px;
+    min-height: calc(100vh - 63px);
+  }
+
+  /* Panel sections */
+  .panel { display: flex; flex-direction: column; gap: 14px; }
+  .card {
+    background: var(--surface); border-radius: var(--radius);
+    border: 1px solid var(--border); padding: 16px;
+  }
+  .card-label {
+    font-size: 10.5px; font-weight: 600; color: var(--text-dimmer);
+    letter-spacing: 1.3px; text-transform: uppercase; margin-bottom: 10px;
+  }
+
+  /* Input */
+  .input-wrap { position: relative; }
+  .input-wrap input {
+    width: 100%; padding: 10px 38px 10px 12px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: rgba(0,0,0,0.35);
+    color: var(--text); font-size: 13px; font-family: inherit; outline: none;
+    transition: border-color 0.2s;
+  }
+  .input-wrap input:focus { border-color: var(--accent); }
+  .input-wrap input::placeholder { color: var(--text-dimmer); }
+  .eye-btn {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: var(--text-dimmer);
+    cursor: pointer; font-size: 15px; padding: 4px 6px;
+  }
+  .hint { font-size: 10px; color: var(--text-dimmer); margin-top: 6px; }
+  .hint a { color: var(--accent); text-decoration: none; }
+
+  /* Model buttons */
+  .model-btn {
+    padding: 10px 12px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text); text-align: left; cursor: pointer;
+    transition: all 0.15s; width: 100; font-family: inherit;
+  }
+  .model-btn:hover { background: var(--surface-hover); }
+  .model-btn.active { border-color: var(--accent); background: var(--accent-glow); }
+  .model-btn .name { font-size: 13px; font-weight: 600; }
+  .model-btn .desc { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+
+  /* Chips */
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    padding: 5px 12px; border-radius: 8px; border: 1px solid var(--border);
+    background: transparent; color: var(--text-dim); font-size: 11.5px;
+    font-weight: 500; cursor: pointer; transition: all 0.15s; font-family: inherit;
+  }
+  .chip:hover { border-color: rgba(255,255,255,0.15); color: var(--text); }
+  .chip.active { border-color: var(--accent); background: var(--accent-glow); color: #c4b5fd; }
+  .chip-warn { font-size: 10px; color: var(--warn); margin-top: 5px; }
+
+  /* Toggle */
+  .toggle-row { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  .toggle-track {
+    width: 40px; height: 22px; border-radius: 11px;
+    background: rgba(255,255,255,0.1); position: relative;
+    transition: background 0.2s; flex-shrink: 0;
+  }
+  .toggle-track.on { background: var(--accent); }
+  .toggle-thumb {
+    width: 16px; height: 16px; border-radius: 50%; background: #fff;
+    position: absolute; top: 3px; left: 3px; transition: left 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .toggle-track.on .toggle-thumb { left: 21px; }
+  .toggle-label { font-size: 13px; color: var(--text-dim); }
+  .toggle-hint {
+    font-size: 10px; color: var(--text-dimmer); margin-top: -6px;
+    padding-left: 50px; line-height: 1.4;
+  }
+
+  /* Big button */
+  .generate-btn {
+    padding: 14px 20px; border-radius: 12px; border: none;
+    background: linear-gradient(135deg, var(--accent), var(--pink));
+    color: #fff; font-size: 14px; font-weight: 700; cursor: pointer;
+    letter-spacing: 0.3px; transition: all 0.2s; font-family: inherit;
+    width: 100%;
+  }
+  .generate-btn:disabled {
+    background: rgba(255,255,255,0.06); color: var(--text-dimmer); cursor: not-allowed;
+  }
+  .generate-btn:not(:disabled):hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+  .retry-btn {
+    padding: 10px 16px; border-radius: var(--radius-sm);
+    border: 1px solid rgba(124,58,237,0.3); background: transparent;
+    color: #a78bfa; font-size: 12px; font-weight: 600; cursor: pointer;
+    font-family: inherit; width: 100%; transition: all 0.15s;
+  }
+  .retry-btn:hover { background: var(--accent-glow); }
+
+  /* Drop zone */
+  .dropzone {
+    position: relative; width: 100%; aspect-ratio: 4/3; border-radius: 16px;
+    border: 2px dashed rgba(255,255,255,0.12); background: var(--surface);
+    cursor: pointer; overflow: hidden; transition: all 0.25s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .dropzone:hover { border-color: rgba(255,255,255,0.2); background: var(--surface-hover); }
+  .dropzone.dragover { border-color: var(--accent); border-style: solid; background: var(--accent-glow); }
+  .dropzone.has-image { border-style: solid; border-color: rgba(255,255,255,0.08); }
+  .dropzone img.preview {
+    width: 100%; height: 100%; object-fit: cover; border-radius: 14px; display: block;
+  }
+  .dropzone .label-overlay {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.85));
+    padding: 28px 14px 10px; border-radius: 0 0 14px 14px;
+  }
+  .dropzone .label-overlay span {
+    font-size: 10.5px; font-weight: 600; color: rgba(255,255,255,0.65);
+    letter-spacing: 1px; text-transform: uppercase;
+  }
+  .dropzone .remove-btn {
+    position: absolute; top: 8px; right: 8px; width: 28px; height: 28px;
+    border-radius: 50%; background: rgba(0,0,0,0.6); border: none;
+    color: #fff; cursor: pointer; font-size: 15px; backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .dropzone:hover .remove-btn { opacity: 1; }
+  .dropzone .placeholder { text-align: center; padding: 24px; }
+  .dropzone .placeholder .icon { font-size: 34px; margin-bottom: 10px; opacity: 0.35; }
+  .dropzone .placeholder .title {
+    font-size: 13px; font-weight: 600; color: var(--text-dim); margin-bottom: 4px;
+  }
+  .dropzone .placeholder .sub { font-size: 11px; color: var(--text-dimmer); }
+
+  /* Image grid */
+  .image-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  /* Status */
+  .status-bar {
+    border-radius: 12px; padding: 14px 18px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .status-bar.loading {
+    background: var(--accent-glow); border: 1px solid rgba(124,58,237,0.2);
+  }
+  .status-bar.error {
+    background: var(--error-bg); border: 1px solid rgba(239,68,68,0.2);
+  }
+  .spinner {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 2px solid rgba(124,58,237,0.25); border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite; flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .status-title { font-size: 13px; font-weight: 600; color: #c4b5fd; }
+  .status-sub { font-size: 11px; color: var(--text-dimmer); margin-top: 2px; }
+  .error-text { font-size: 13px; color: #fca5a5; }
+
+  /* Analysis card */
+  .analysis-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px;
+  }
+  .analysis-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
+  }
+  .analysis-toggle {
+    background: none; border: none; color: var(--text-dimmer);
+    cursor: pointer; font-size: 11px; padding: 2px 8px; font-family: inherit;
+  }
+  .analysis-toggle:hover { color: var(--text-dim); }
+  .analysis-body {
+    font-size: 12px; line-height: 1.65; color: var(--text-dim);
+    max-height: 100px; overflow-y: auto;
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent;
+  }
+  .analysis-body.collapsed { display: none; }
+
+  /* Result */
+  .result-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; overflow: hidden;
+  }
+  .result-header {
+    padding: 12px 16px; display: flex; align-items: center;
+    justify-content: space-between; border-bottom: 1px solid var(--border);
+  }
+  .download-btn {
+    padding: 6px 14px; border-radius: 8px;
+    border: 1px solid rgba(124,58,237,0.3); background: var(--accent-glow);
+    color: #c4b5fd; font-size: 12px; font-weight: 600; cursor: pointer;
+    font-family: inherit; transition: all 0.15s;
+  }
+  .download-btn:hover { background: rgba(124,58,237,0.25); }
+  .result-image { padding: 8px; }
+  .result-image img { width: 100%; border-radius: var(--radius-sm); display: block; }
+  .result-desc {
+    padding: 8px 16px 14px; font-size: 11px; color: var(--text-dimmer);
+    line-height: 1.5; border-top: 1px solid rgba(255,255,255,0.04);
+  }
+
+  /* Empty state */
+  .empty-state {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    min-height: 300px; border-radius: 16px;
+    border: 1px dashed rgba(255,255,255,0.06); background: rgba(255,255,255,0.008);
+    text-align: center;
+  }
+  .empty-icon { font-size: 42px; margin-bottom: 12px; opacity: 0.12; }
+  .empty-title { font-size: 14px; color: var(--text-dimmer); font-weight: 500; }
+  .empty-sub { font-size: 11px; color: rgba(255,255,255,0.1); margin-top: 6px; }
+
+  /* Right panel */
+  .main-panel { display: flex; flex-direction: column; gap: 18px; }
+
+  /* Responsive */
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; }
+    .image-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 520px) {
+    .layout { padding: 16px; gap: 16px; }
+    .image-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo">✦</div>
+  <div>
+    <div class="header-title">Style Transfer Studio</div>
+    <div class="header-sub">Powered by Nano Banana</div>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- Left Panel -->
+  <div class="panel">
+    <!-- API Key -->
+    <div class="card">
+      <div class="card-label">API Key</div>
+      <div class="input-wrap">
+        <input id="apiKey" type="password" placeholder="Enter Gemini API key..." autocomplete="off">
+        <button class="eye-btn" onclick="toggleKeyVisibility()" id="eyeBtn">👁</button>
+      </div>
+      <div class="hint">Get a key at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></div>
+    </div>
+
+    <!-- Model -->
+    <div class="card">
+      <div class="card-label">Model</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <button class="model-btn active" data-model="gemini-2.5-flash-image" onclick="selectModel(this)">
+          <div class="name">Nano Banana (Fast)</div>
+          <div class="desc">Speed optimized, ~1024px</div>
+        </button>
+        <button class="model-btn" data-model="gemini-3-pro-image-preview" onclick="selectModel(this)">
+          <div class="name">Nano Banana Pro</div>
+          <div class="desc">Studio quality, up to 4K</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Output Settings -->
+    <div class="card">
+      <div class="card-label">Output Settings</div>
+      <div style="margin-bottom:14px;">
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px;">Resolution</div>
+        <div class="chips" id="resChips">
+          <button class="chip active" data-val="1K" onclick="selectChip('res',this)">1K</button>
+          <button class="chip" data-val="2K" onclick="selectChip('res',this)">2K</button>
+          <button class="chip" data-val="4K" onclick="selectChip('res',this)">4K (Pro only)</button>
+        </div>
+        <div class="chip-warn" id="resWarn" style="display:none;">⚠ 4K requires Nano Banana Pro model</div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px;">Aspect Ratio</div>
+        <div class="chips" id="arChips">
+          <button class="chip active" data-val="auto" onclick="selectChip('ar',this)">Auto</button>
+          <button class="chip" data-val="1:1" onclick="selectChip('ar',this)">1:1</button>
+          <button class="chip" data-val="3:4" onclick="selectChip('ar',this)">3:4</button>
+          <button class="chip" data-val="4:3" onclick="selectChip('ar',this)">4:3</button>
+          <button class="chip" data-val="16:9" onclick="selectChip('ar',this)">16:9</button>
+          <button class="chip" data-val="9:16" onclick="selectChip('ar',this)">9:16</button>
+          <button class="chip" data-val="3:2" onclick="selectChip('ar',this)">3:2</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preservation -->
+    <div class="card" style="display:flex;flex-direction:column;gap:12px;">
+      <div class="card-label" style="margin-bottom:0">Preservation</div>
+      <div class="toggle-row" onclick="toggleSwitch('comp')">
+        <div class="toggle-track on" id="toggle-comp"><div class="toggle-thumb"></div></div>
+        <span class="toggle-label">Match reference composition</span>
+      </div>
+      <div class="toggle-hint">Replicates arrangement, count &amp; positioning from reference</div>
+      <div class="toggle-row" onclick="toggleSwitch('faces')">
+        <div class="toggle-track on" id="toggle-faces"><div class="toggle-thumb"></div></div>
+        <span class="toggle-label">Preserve faces</span>
+      </div>
+      <div class="toggle-row" onclick="toggleSwitch('bg')">
+        <div class="toggle-track" id="toggle-bg"><div class="toggle-thumb"></div></div>
+        <span class="toggle-label">Preserve background</span>
+      </div>
+    </div>
+
+    <!-- Generate -->
+    <button class="generate-btn" id="generateBtn" disabled onclick="handleGenerate()">Generate Styled Image</button>
+    <button class="retry-btn" id="retryBtn" style="display:none" onclick="handleRetry()">↻ Regenerate (same style)</button>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="main-panel">
+    <!-- Image Upload -->
+    <div class="image-grid">
+      <div class="dropzone" id="refZone" onclick="document.getElementById('refInput').click()"
+           ondragover="dzDragOver(event,this)" ondragleave="dzDragLeave(this)" ondrop="dzDrop(event,'ref')">
+        <div class="placeholder" id="refPlaceholder">
+          <div class="icon">🎨</div>
+          <div class="title">Style Reference</div>
+          <div class="sub">Drop or click to upload</div>
+        </div>
+        <input type="file" accept="image/*" id="refInput" style="display:none" onchange="handleFile(event,'ref')">
+      </div>
+      <div class="dropzone" id="subZone" onclick="document.getElementById('subInput').click()"
+           ondragover="dzDragOver(event,this)" ondragleave="dzDragLeave(this)" ondrop="dzDrop(event,'sub')">
+        <div class="placeholder" id="subPlaceholder">
+          <div class="icon">📷</div>
+          <div class="title">Subject Image</div>
+          <div class="sub">Drop or click to upload</div>
+        </div>
+        <input type="file" accept="image/*" id="subInput" style="display:none" onchange="handleFile(event,'sub')">
+      </div>
+    </div>
+
+    <!-- Status area -->
+    <div id="statusArea"></div>
+
+    <!-- Analysis -->
+    <div id="analysisArea"></div>
+
+    <!-- Result -->
+    <div id="resultArea"></div>
+
+    <!-- Empty state -->
+    <div class="empty-state" id="emptyState">
+      <div>
+        <div class="empty-icon">✦</div>
+        <div class="empty-title" id="emptyTitle">Enter your API key to get started</div>
+        <div class="empty-sub" id="emptySub"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── State ──
+  const state = {
+    model: 'gemini-2.5-flash-image',
+    resolution: '1K',
+    aspectRatio: 'auto',
+    preserveFaces: true,
+    preserveBg: false,
+    matchComp: true,
+    refFile: null, refUrl: null, refB64: null, refMime: null,
+    subFile: null, subUrl: null, subB64: null, subMime: null,
+    styleAnalysis: '',
+    subjectAnalysis: '',
+    loading: false,
+  };
+
+  // ── Helpers ──
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result.split(',')[1]);
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+  }
+
+  function mimeFromName(name) {
+    const ext = name.split('.').pop().toLowerCase();
+    return { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', webp:'image/webp', gif:'image/gif' }[ext] || 'image/jpeg';
+  }
+
+  // ── UI Updates ──
+  function updateGenerateBtn() {
+    const key = document.getElementById('apiKey').value.trim();
+    const btn = document.getElementById('generateBtn');
+    btn.disabled = !(key && state.refFile && state.subFile && !state.loading);
+
+    const es = document.getElementById('emptyState');
+    const ra = document.getElementById('resultArea');
+    if (ra.innerHTML) { es.style.display = 'none'; return; }
+    if (state.loading) { es.style.display = 'none'; return; }
+
+    es.style.display = 'flex';
+    const title = document.getElementById('emptyTitle');
+    const sub = document.getElementById('emptySub');
+    if (!key) { title.textContent = 'Enter your API key to get started'; sub.textContent = ''; }
+    else if (!state.refFile) { title.textContent = 'Upload a style reference image'; sub.textContent = 'Your styled image will appear here'; }
+    else if (!state.subFile) { title.textContent = 'Upload your subject image'; sub.textContent = 'Your styled image will appear here'; }
+    else { title.textContent = 'Ready to generate'; sub.textContent = 'Click "Generate Styled Image" to begin'; }
+  }
+
+  document.getElementById('apiKey').addEventListener('input', updateGenerateBtn);
+
+  function toggleKeyVisibility() {
+    const inp = document.getElementById('apiKey');
+    const btn = document.getElementById('eyeBtn');
+    if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+    else { inp.type = 'password'; btn.textContent = '👁'; }
+  }
+
+  function selectModel(el) {
+    document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    state.model = el.dataset.model;
+    checkResWarn();
+  }
+
+  function selectChip(group, el) {
+    const container = group === 'res' ? 'resChips' : 'arChips';
+    document.querySelectorAll(`#${container} .chip`).forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    if (group === 'res') { state.resolution = el.dataset.val; checkResWarn(); }
+    else state.aspectRatio = el.dataset.val;
+  }
+
+  function checkResWarn() {
+    const w = document.getElementById('resWarn');
+    w.style.display = (state.resolution === '4K' && state.model !== 'gemini-3-pro-image-preview') ? 'block' : 'none';
+  }
+
+  function toggleSwitch(id) {
+    const track = document.getElementById(`toggle-${id}`);
+    const isOn = track.classList.toggle('on');
+    if (id === 'faces') state.preserveFaces = isOn;
+    else if (id === 'bg') state.preserveBg = isOn;
+    else if (id === 'comp') state.matchComp = isOn;
+  }
+
+  // ── Dropzone ──
+  function dzDragOver(e, el) { e.preventDefault(); el.classList.add('dragover'); }
+  function dzDragLeave(el) { el.classList.remove('dragover'); }
+  function dzDrop(e, type) {
+    e.preventDefault(); e.stopPropagation();
+    const zone = document.getElementById(type === 'ref' ? 'refZone' : 'subZone');
+    zone.classList.remove('dragover');
+    const file = e.dataTransfer?.files?.[0];
+    if (file && file.type.startsWith('image/')) loadImage(file, type);
+  }
+  function handleFile(e, type) {
+    const file = e.target.files?.[0];
+    if (file) loadImage(file, type);
+  }
+
+  function loadImage(file, type) {
+    const url = URL.createObjectURL(file);
+    const zone = document.getElementById(type === 'ref' ? 'refZone' : 'subZone');
+    const placeholder = document.getElementById(type === 'ref' ? 'refPlaceholder' : 'subPlaceholder');
+    const label = type === 'ref' ? 'Style Reference' : 'Subject Image';
+
+    if (type === 'ref') {
+      if (state.refUrl) URL.revokeObjectURL(state.refUrl);
+      state.refFile = file; state.refUrl = url; state.refMime = mimeFromName(file.name);
+    } else {
+      if (state.subUrl) URL.revokeObjectURL(state.subUrl);
+      state.subFile = file; state.subUrl = url; state.subMime = mimeFromName(file.name);
+    }
+
+    zone.classList.add('has-image');
+    zone.innerHTML = `
+      <img class="preview" src="${url}" alt="${label}">
+      <div class="label-overlay"><span>${label}</span></div>
+      <button class="remove-btn" onclick="removeImage(event,'${type}')" title="Remove">×</button>
+    `;
+    // Re-attach the hidden file input
+    const inputId = type === 'ref' ? 'refInput' : 'subInput';
+    let inp = document.getElementById(inputId);
+    if (!inp) {
+      inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = 'image/*'; inp.id = inputId;
+      inp.style.display = 'none';
+      inp.onchange = (e) => handleFile(e, type);
+    }
+    zone.appendChild(inp);
+    zone.onclick = (e) => {
+      if (e.target.classList.contains('remove-btn')) return;
+      inp.click();
+    };
+
+    updateGenerateBtn();
+  }
+
+  function removeImage(e, type) {
+    e.stopPropagation();
+    const zone = document.getElementById(type === 'ref' ? 'refZone' : 'subZone');
+    const label = type === 'ref' ? 'Style Reference' : 'Subject Image';
+    const icon = type === 'ref' ? '🎨' : '📷';
+    const inputId = type === 'ref' ? 'refInput' : 'subInput';
+
+    if (type === 'ref') {
+      if (state.refUrl) URL.revokeObjectURL(state.refUrl);
+      state.refFile = null; state.refUrl = null; state.refB64 = null;
+    } else {
+      if (state.subUrl) URL.revokeObjectURL(state.subUrl);
+      state.subFile = null; state.subUrl = null; state.subB64 = null;
+    }
+
+    zone.classList.remove('has-image');
+    zone.innerHTML = `
+      <div class="placeholder">
+        <div class="icon">${icon}</div>
+        <div class="title">${label}</div>
+        <div class="sub">Drop or click to upload</div>
+      </div>
+      <input type="file" accept="image/*" id="${inputId}" style="display:none" onchange="handleFile(event,'${type}')">
+    `;
+    zone.onclick = () => document.getElementById(inputId).click();
+    updateGenerateBtn();
+  }
+
+  // ── Phase 1: Analyze reference for elements to EXCLUDE ──
+  async function analyzeReference(b64, mime, apiKey) {
+    const prompt = `Analyze this product photograph. I need to know what elements are SPECIFIC to this reference that should NOT be copied when recreating the composition with a different product.
+
+List the following:
+
+REFERENCE-SPECIFIC ELEMENTS TO EXCLUDE:
+- Any text, logos, brand names, or stamps visible on the products
+- Any decorative elements (dried flowers, herbs, ribbons, etc.)
+- The specific color/pattern of the products (we'll replace this)
+- Any watermarks or photographer marks
+
+COMPOSITION TO PRESERVE:
+- Number of items and how they are arranged (stacked, grouped, etc.)
+- Position, angle, and orientation of each item
+- Props present (twine, paper, fabric, etc.)
+- Background type and color
+- Lighting style (soft/hard, direction, mood)
+- Camera angle and framing
+
+Be concise but precise.`;
+
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [
+        { inline_data: { mime_type: mime, data: b64 } },
+        { text: prompt }
+      ]}] })
+    });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err?.error?.message || `Analysis failed (${res.status})`); }
+    const data = await res.json();
+    return data.candidates?.[0]?.content?.parts?.find(p => p.text)?.text || '';
+  }
+
+  // ── Phase 2: Analyze subject product appearance ──
+  async function analyzeSubject(b64, mime, apiKey) {
+    const prompt = `Describe this product's visual appearance in one concise paragraph. Focus on:
+- Shape and proportions
+- Color pattern (be specific: diagonal stripes, solid, gradient, marbled, etc.)
+- Which colors are where (top, bottom, left, right)
+- Surface texture
+- Whether it has any text/logos (or explicitly state if NONE)
+
+Keep it brief but precise enough to identify this exact product.`;
+
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [
+        { inline_data: { mime_type: mime, data: b64 } },
+        { text: prompt }
+      ]}] })
+    });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err?.error?.message || `Subject analysis failed (${res.status})`); }
+    const data = await res.json();
+    return data.candidates?.[0]?.content?.parts?.find(p => p.text)?.text || '';
+  }
+
+  // ── Phase 3: Generate ──
+  async function generateImage(refB64, refMime, subB64, subMime, analysisInfo, subjectDesc, apiKey) {
+    let prompt;
+    let parts;
+
+    if (state.matchComp) {
+      // COMPOSITION MODE: Send BOTH images with clear separation of what to copy from each
+      prompt = `Style transfer task: Recreate Image 1's composition with Image 2's product.
+
+IMAGE 1 (COMPOSITION REFERENCE):
+Copy ONLY the arrangement, poses, lighting, background, and props.
+${analysisInfo}
+
+IMAGE 2 (PRODUCT TO USE):
+This is the actual product to show in the final image.
+${subjectDesc}
+
+YOUR TASK:
+Take the EXACT composition from Image 1 and replace the product appearance with Image 2's product.
+
+MUST COPY FROM IMAGE 1:
+- Number of items and their arrangement/stacking
+- Positions, angles, orientations of each item
+- Background type and color
+- Lighting style and mood
+- Camera angle and framing
+- Props (twine, paper, etc.) if present
+
+MUST COPY FROM IMAGE 2:
+- The product's color pattern and design
+- Surface texture
+
+DO NOT INCLUDE:
+- Any text, logos, or stamps from Image 1's products
+- Any decorative elements (flowers, herbs) from Image 1's products unless they're separate props
+- The color/pattern of Image 1's products
+- Any watermarks
+
+OUTPUT: A photorealistic product photo showing Image 2's product in Image 1's exact composition and style. Every product in the output must look identical to Image 2's product.`;
+
+      parts = [
+        { inline_data: { mime_type: refMime, data: refB64 } },
+        { inline_data: { mime_type: subMime, data: subB64 } },
+        { text: prompt }
+      ];
+
+    } else {
+      // STYLE-ONLY MODE: Apply visual style without changing composition
+      prompt = `IMAGE 1 (first image) = STYLE REFERENCE for visual aesthetic.
+IMAGE 2 (second image) = SUBJECT to restyle.
+
+Recreate the subject from Image 2 with the visual style of Image 1. Keep Image 2's exact composition and product appearance. Apply Image 1's color grading, lighting, background, and mood.
+
+STYLE INFO: ${analysisInfo}
+
+Keep composition identical to Image 2. Studio-grade output.
+${state.preserveFaces ? 'PRESERVE facial features exactly.' : ''}
+${state.preserveBg ? 'PRESERVE background, only restyle colors/lighting.' : ''}
+DO NOT alter identity, change arrangement, add/remove objects, or apply cartoon effects.`;
+
+      parts = [
+        { inline_data: { mime_type: refMime, data: refB64 } },
+        { inline_data: { mime_type: subMime, data: subB64 } },
+        { text: prompt }
+      ];
+    }
+
+    const payload = {
+      contents: [{ parts }],
+      generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
+    };
+
+    // Configure aspect ratio if not auto
+    if (state.aspectRatio !== 'auto') {
+      payload.generationConfig.imageConfig = { aspectRatio: state.aspectRatio };
+    }
+
+    // Use the image generation model
+    const genModel = 'gemini-2.0-flash-exp-image-generation';
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${genModel}:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err?.error?.message || `Generation failed (${res.status})`); }
+
+    const data = await res.json();
+    const resParts = data.candidates?.[0]?.content?.parts || [];
+    let imgData = null, desc = null;
+    for (const p of resParts) {
+      if (p.text) desc = p.text;
+      if (p.inlineData) imgData = p.inlineData;
+    }
+    if (!imgData) throw new Error(desc || 'No image generated. Try again or adjust your images.');
+    return { dataUrl: `data:${imgData.mimeType || 'image/png'};base64,${imgData.data}`, description: desc };
+  }
+
+  // ── Main flow ──
+  function showStatus(type, title, sub) {
+    const area = document.getElementById('statusArea');
+    if (type === 'loading') {
+      area.innerHTML = `<div class="status-bar loading"><div class="spinner"></div><div><div class="status-title">${title}</div><div class="status-sub">${sub || 'This may take 15-30 seconds'}</div></div></div>`;
+    } else if (type === 'error') {
+      area.innerHTML = `<div class="status-bar error"><div class="error-text"><strong>Error:</strong> ${title}</div></div>`;
+    } else {
+      area.innerHTML = '';
+    }
+  }
+
+  function showAnalysis(text) {
+    document.getElementById('analysisArea').innerHTML = `
+      <div class="analysis-card">
+        <div class="analysis-header">
+          <div class="card-label" style="margin:0">Style Analysis</div>
+          <button class="analysis-toggle" onclick="this.parentElement.nextElementSibling.classList.toggle('collapsed')">toggle</button>
+        </div>
+        <div class="analysis-body">${text}</div>
+      </div>`;
+  }
+
+  function showResult(dataUrl, desc) {
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('resultArea').innerHTML = `
+      <div class="result-card">
+        <div class="result-header">
+          <div class="card-label" style="margin:0">Result</div>
+          <button class="download-btn" onclick="downloadResult()">↓ Download PNG</button>
+        </div>
+        <div class="result-image"><img src="${dataUrl}" alt="Styled result" id="resultImg"></div>
+        ${desc ? `<div class="result-desc">${desc}</div>` : ''}
+      </div>`;
+  }
+
+  function downloadResult() {
+    const img = document.getElementById('resultImg');
+    if (!img) return;
+    const a = document.createElement('a');
+    a.href = img.src; a.download = `styled_${Date.now()}.png`; a.click();
+  }
+
+  async function handleGenerate() {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    if (!apiKey || !state.refFile || !state.subFile) return;
+
+    state.loading = true;
+    updateGenerateBtn();
+    document.getElementById('resultArea').innerHTML = '';
+    document.getElementById('analysisArea').innerHTML = '';
+    document.getElementById('retryBtn').style.display = 'none';
+
+    try {
+      showStatus('loading', 'Encoding images...');
+      const [refB64, subB64] = await Promise.all([fileToBase64(state.refFile), fileToBase64(state.subFile)]);
+      state.refB64 = refB64; state.subB64 = subB64;
+
+      showStatus('loading', 'Phase 1/3 — Analyzing reference composition...');
+      state.styleAnalysis = await analyzeReference(refB64, state.refMime, apiKey);
+      showAnalysis(state.styleAnalysis);
+
+      showStatus('loading', 'Phase 2/3 — Analyzing your product...');
+      state.subjectAnalysis = await analyzeSubject(subB64, state.subMime, apiKey);
+
+      showStatus('loading', 'Phase 3/3 — Generating styled image...');
+      const result = await generateImage(refB64, state.refMime, subB64, state.subMime, state.styleAnalysis, state.subjectAnalysis, apiKey);
+      showStatus('clear');
+      showResult(result.dataUrl, result.description);
+      document.getElementById('retryBtn').style.display = 'block';
+    } catch (err) {
+      showStatus('error', err.message);
+    } finally {
+      state.loading = false;
+      updateGenerateBtn();
+    }
+  }
+
+  async function handleRetry() {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    if (!apiKey || !state.refB64 || !state.subB64 || !state.styleAnalysis) return;
+
+    state.loading = true;
+    updateGenerateBtn();
+    document.getElementById('resultArea').innerHTML = '';
+
+    try {
+      showStatus('loading', 'Regenerating with same analysis...');
+      const result = await generateImage(state.refB64, state.refMime, state.subB64, state.subMime, state.styleAnalysis, state.subjectAnalysis, apiKey);
+      showStatus('clear');
+      showResult(result.dataUrl, result.description);
+    } catch (err) {
+      showStatus('error', err.message);
+    } finally {
+      state.loading = false;
+      updateGenerateBtn();
+    }
+  }
+
+  // Init
+  updateGenerateBtn();
+</script>
+</body>
+</html>

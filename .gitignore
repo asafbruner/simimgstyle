@@ -1,0 +1,11 @@
+# Test files
+test_api*.js
+
+# Generated results
+result*.png
+
+# Reference/subject images (sample data)
+reference*.jpeg
+reference*.png
+subject*.jpg
+subject*.jpeg
