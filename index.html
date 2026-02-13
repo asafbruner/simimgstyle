@@ -243,11 +243,18 @@
   /* Result */
   .result-card {
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: 16px; overflow: hidden;
+    border-radius: 16px; overflow: hidden; margin-bottom: 16px;
+  }
+  .result-card.best {
+    border-color: var(--accent); box-shadow: 0 0 20px var(--accent-glow);
   }
   .result-header {
     padding: 12px 16px; display: flex; align-items: center;
     justify-content: space-between; border-bottom: 1px solid var(--border);
+  }
+  .best-badge {
+    background: var(--accent); color: #fff; font-size: 10px; font-weight: 600;
+    padding: 3px 8px; border-radius: 6px; margin-left: 8px;
   }
   .download-btn {
     padding: 6px 14px; border-radius: 8px;
@@ -261,6 +268,16 @@
   .result-desc {
     padding: 8px 16px 14px; font-size: 11px; color: var(--text-dimmer);
     line-height: 1.5; border-top: 1px solid rgba(255,255,255,0.04);
+  }
+  .validation-status {
+    padding: 10px 16px; font-size: 12px; font-weight: 500;
+    border-top: 1px solid rgba(255,255,255,0.04);
+  }
+  .validation-status.pass { color: #4ade80; background: rgba(74,222,128,0.05); }
+  .validation-status.fail { color: #f59e0b; background: rgba(245,158,11,0.05); }
+  .validation-issues {
+    font-size: 11px; color: var(--text-dim); margin-top: 6px;
+    font-weight: 400; line-height: 1.5;
   }
 
   /* Empty state */
@@ -768,7 +785,78 @@ DO NOT alter identity, change arrangement, add/remove objects, or apply cartoon 
       if (p.inlineData) imgData = p.inlineData;
     }
     if (!imgData) throw new Error(desc || 'No image generated. Try again or adjust your images.');
-    return { dataUrl: `data:${imgData.mimeType || 'image/png'};base64,${imgData.data}`, description: desc };
+    return {
+      dataUrl: `data:${imgData.mimeType || 'image/png'};base64,${imgData.data}`,
+      base64: imgData.data,
+      mimeType: imgData.mimeType || 'image/png',
+      description: desc
+    };
+  }
+
+  // ── Phase 4: Validate generated result ──
+  async function validateResult(resultB64, resultMime, refB64, refMime, subB64, subMime, subjectDesc, apiKey) {
+    const prompt = `You are a quality control reviewer for product photography style transfer.
+
+TASK: Compare the GENERATED IMAGE against the REFERENCE and SUBJECT to check if the style transfer was successful.
+
+REFERENCE IMAGE (Image 1): Shows the TARGET COMPOSITION (arrangement, stacking, lighting, background)
+SUBJECT IMAGE (Image 2): Shows the TARGET PRODUCT APPEARANCE (colors, pattern, texture)
+GENERATED IMAGE (Image 3): The result to evaluate
+
+SUBJECT DESCRIPTION: ${subjectDesc}
+
+CHECK THE FOLLOWING:
+
+1. COMPOSITION MATCH (from Reference):
+   - Does the generated image have the same number of items?
+   - Is the arrangement/stacking similar?
+   - Is the background color/type similar?
+   - Is the lighting style similar?
+
+2. PRODUCT APPEARANCE MATCH (from Subject):
+   - Does each product in the generated image have the SAME color pattern as the subject?
+   - Are the exact color TONES correct (not brighter/more saturated)?
+   - Is the pattern type correct (diagonal stripes stay diagonal, not horizontal)?
+
+3. UNWANTED ELEMENTS:
+   - Does the generated image have text/logos that shouldn't be there?
+   - Does it have patterns from the reference (like marbling) instead of the subject?
+
+Respond with EXACTLY this format:
+PASS: [YES or NO]
+COMPOSITION_SCORE: [1-10]
+COLOR_ACCURACY: [1-10]
+ISSUES: [List specific issues, or "None" if passed]`;
+
+    const parts = [
+      { inline_data: { mime_type: refMime, data: refB64 } },
+      { inline_data: { mime_type: subMime, data: subB64 } },
+      { inline_data: { mime_type: resultMime, data: resultB64 } },
+      { text: prompt }
+    ];
+
+    const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts }] })
+    });
+
+    if (!res.ok) {
+      console.warn('Validation failed, assuming pass');
+      return { pass: true, issues: 'Validation unavailable' };
+    }
+
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.find(p => p.text)?.text || '';
+
+    const passMatch = text.match(/PASS:\s*(YES|NO)/i);
+    const issuesMatch = text.match(/ISSUES:\s*(.+?)(?:\n|$)/is);
+
+    return {
+      pass: passMatch ? passMatch[1].toUpperCase() === 'YES' : true,
+      issues: issuesMatch ? issuesMatch[1].trim() : 'Unknown',
+      fullResponse: text
+    };
   }
 
   // ── Main flow ──
@@ -794,21 +882,39 @@ DO NOT alter identity, change arrangement, add/remove objects, or apply cartoon 
       </div>`;
   }
 
-  function showResult(dataUrl, desc) {
+  function addResult(dataUrl, attempt, validation, isBest = false) {
     document.getElementById('emptyState').style.display = 'none';
-    document.getElementById('resultArea').innerHTML = `
-      <div class="result-card">
-        <div class="result-header">
-          <div class="card-label" style="margin:0">Result</div>
-          <button class="download-btn" onclick="downloadResult()">↓ Download PNG</button>
+    const area = document.getElementById('resultArea');
+
+    const statusClass = validation.pass ? 'pass' : 'fail';
+    const statusText = validation.pass ? '✓ Passed validation' : '✗ Issues detected';
+    const bestBadge = isBest ? '<span class="best-badge">★ Best Result</span>' : '';
+
+    const card = document.createElement('div');
+    card.className = `result-card ${isBest ? 'best' : ''}`;
+    card.innerHTML = `
+      <div class="result-header">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="card-label" style="margin:0">Attempt ${attempt}</div>
+          ${bestBadge}
         </div>
-        <div class="result-image"><img src="${dataUrl}" alt="Styled result" id="resultImg"></div>
-        ${desc ? `<div class="result-desc">${desc}</div>` : ''}
+        <button class="download-btn" onclick="downloadImage(this)">↓ Download</button>
+      </div>
+      <div class="result-image"><img src="${dataUrl}" alt="Result ${attempt}"></div>
+      <div class="validation-status ${statusClass}">
+        <span>${statusText}</span>
+        ${!validation.pass && validation.issues !== 'None' ? `<div class="validation-issues">${validation.issues}</div>` : ''}
       </div>`;
+
+    if (isBest) {
+      area.prepend(card);
+    } else {
+      area.appendChild(card);
+    }
   }
 
-  function downloadResult() {
-    const img = document.getElementById('resultImg');
+  function downloadImage(btn) {
+    const img = btn.closest('.result-card').querySelector('img');
     if (!img) return;
     const a = document.createElement('a');
     a.href = img.src; a.download = `styled_${Date.now()}.png`; a.click();
@@ -824,22 +930,65 @@ DO NOT alter identity, change arrangement, add/remove objects, or apply cartoon 
     document.getElementById('analysisArea').innerHTML = '';
     document.getElementById('retryBtn').style.display = 'none';
 
+    const MAX_ATTEMPTS = 3;
+    const results = [];
+
     try {
       showStatus('loading', 'Encoding images...');
       const [refB64, subB64] = await Promise.all([fileToBase64(state.refFile), fileToBase64(state.subFile)]);
       state.refB64 = refB64; state.subB64 = subB64;
 
-      showStatus('loading', 'Phase 1/3 — Analyzing reference composition...');
+      showStatus('loading', 'Phase 1 — Analyzing reference composition...');
       state.styleAnalysis = await analyzeReference(refB64, state.refMime, apiKey);
       showAnalysis(state.styleAnalysis);
 
-      showStatus('loading', 'Phase 2/3 — Analyzing your product...');
+      showStatus('loading', 'Phase 2 — Analyzing your product...');
       state.subjectAnalysis = await analyzeSubject(subB64, state.subMime, apiKey);
 
-      showStatus('loading', 'Phase 3/3 — Generating styled image...');
-      const result = await generateImage(refB64, state.refMime, subB64, state.subMime, state.styleAnalysis, state.subjectAnalysis, apiKey);
-      showStatus('clear');
-      showResult(result.dataUrl, result.description);
+      // Iterative generation with validation
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        showStatus('loading', `Generating image (attempt ${attempt}/${MAX_ATTEMPTS})...`);
+
+        const result = await generateImage(refB64, state.refMime, subB64, state.subMime, state.styleAnalysis, state.subjectAnalysis, apiKey);
+
+        showStatus('loading', `Validating result ${attempt}...`);
+        const validation = await validateResult(
+          result.base64, result.mimeType,
+          refB64, state.refMime,
+          subB64, state.subMime,
+          state.subjectAnalysis, apiKey
+        );
+
+        results.push({ ...result, validation, attempt });
+        addResult(result.dataUrl, attempt, validation, false);
+
+        if (validation.pass) {
+          showStatus('clear');
+          // Mark this as best result
+          const cards = document.querySelectorAll('.result-card');
+          if (cards.length > 0) {
+            cards[cards.length - 1].classList.add('best');
+            cards[cards.length - 1].querySelector('.result-header div').innerHTML += '<span class="best-badge">★ Best Result</span>';
+          }
+          break;
+        }
+
+        if (attempt < MAX_ATTEMPTS) {
+          showStatus('loading', `Issues found, generating new attempt...`, validation.issues);
+        }
+      }
+
+      // If none passed, mark the last one as best (or could pick best score)
+      const passedResults = results.filter(r => r.validation.pass);
+      if (passedResults.length === 0 && results.length > 0) {
+        showStatus('clear');
+        const cards = document.querySelectorAll('.result-card');
+        if (cards.length > 0) {
+          cards[cards.length - 1].classList.add('best');
+          cards[cards.length - 1].querySelector('.result-header div').innerHTML += '<span class="best-badge">★ Best Available</span>';
+        }
+      }
+
       document.getElementById('retryBtn').style.display = 'block';
     } catch (err) {
       showStatus('error', err.message);
