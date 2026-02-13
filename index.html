@@ -651,14 +651,20 @@ Be concise but precise.`;
 
   // ── Phase 2: Analyze subject product appearance ──
   async function analyzeSubject(b64, mime, apiKey) {
-    const prompt = `Describe this product's visual appearance in one concise paragraph. Focus on:
-- Shape and proportions
-- Color pattern (be specific: diagonal stripes, solid, gradient, marbled, etc.)
-- Which colors are where (top, bottom, left, right)
-- Surface texture
-- Whether it has any text/logos (or explicitly state if NONE)
+    const prompt = `Describe this product's visual appearance with PRECISE COLOR DETAILS. This description will be used to reproduce the EXACT colors in a generated image.
 
-Keep it brief but precise enough to identify this exact product.`;
+Describe:
+- Shape and proportions
+- Color pattern type (diagonal stripes, horizontal layers, gradient, marbled, solid, etc.)
+- EXACT colors with tone descriptions:
+  * For each color, describe: the hue, whether it's warm/cool, muted/saturated, light/dark
+  * Example: "dusty mauve - a muted, earthy brownish-purple, NOT bright lavender"
+  * Example: "warm peach - soft orange-pink, NOT coral or salmon"
+- Where each color is located (top-left, middle band, bottom-right, etc.)
+- Surface texture (matte, glossy, grainy, smooth)
+- Any text/logos (or state NONE if absent)
+
+Be VERY specific about color tones - this is critical for accurate reproduction.`;
 
     const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
@@ -680,38 +686,40 @@ Keep it brief but precise enough to identify this exact product.`;
 
     if (state.matchComp) {
       // COMPOSITION MODE: Send BOTH images with clear separation of what to copy from each
-      prompt = `Style transfer task: Recreate Image 1's composition with Image 2's product.
+      prompt = `Create a product photo with Image 1's composition but using Image 2's product.
 
-IMAGE 1 (COMPOSITION REFERENCE):
-Copy ONLY the arrangement, poses, lighting, background, and props.
+IMAGE 1 (COMPOSITION ONLY):
 ${analysisInfo}
 
-IMAGE 2 (PRODUCT TO USE):
-This is the actual product to show in the final image.
+IMAGE 2 (PRODUCT - match EXACTLY):
 ${subjectDesc}
 
-YOUR TASK:
-Take the EXACT composition from Image 1 and replace the product appearance with Image 2's product.
+CRITICAL COLOR MATCHING:
+- Match Image 2's EXACT color tones - not brighter, not more saturated
+- If Image 2 has muted/dusty colors, keep them muted/dusty
+- If Image 2 has warm tones, keep them warm
+- Do NOT substitute similar colors (e.g., don't use bright purple for dusty mauve)
 
 MUST COPY FROM IMAGE 1:
-- Number of items and their arrangement/stacking
-- Positions, angles, orientations of each item
+- Number of items and arrangement/stacking
+- Positions, angles, orientations
 - Background type and color
 - Lighting style and mood
 - Camera angle and framing
-- Props (twine, paper, etc.) if present
+- Props if present
 
 MUST COPY FROM IMAGE 2:
-- The product's color pattern and design
+- EXACT color pattern and tones (critical!)
+- Pattern type (diagonal/horizontal/etc.)
 - Surface texture
 
 DO NOT INCLUDE:
-- Any text, logos, or stamps from Image 1's products
-- Any decorative elements (flowers, herbs) from Image 1's products unless they're separate props
-- The color/pattern of Image 1's products
+- Text, logos, or stamps from Image 1
+- Decorative elements from Image 1's products
+- Image 1's color/pattern
 - Any watermarks
 
-OUTPUT: A photorealistic product photo showing Image 2's product in Image 1's exact composition and style. Every product in the output must look identical to Image 2's product.`;
+OUTPUT: Photorealistic product photo. ALL products must match Image 2's exact colors and pattern.`;
 
       parts = [
         { inline_data: { mime_type: refMime, data: refB64 } },
